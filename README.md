@@ -1,3 +1,5 @@
+[![Docs](https://docs.rs/rtrie/badge.svg)](https://docs.rs/rtrie/)
+
 ## Introduction
 
 This Rust crate implements [randomized ternary search
