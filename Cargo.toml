@@ -1,0 +1,11 @@
+[package]
+name = "rtrie"
+version = "0.1.0"
+authors = ["Daniël de Kok <me@danieldk.eu>"]
+
+[dependencies]
+num-traits = "0.1"
+rand = "0.3"
+
+[dev-dependencies]
+quickcheck = "0.4"
