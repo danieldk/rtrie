@@ -84,6 +84,24 @@ quickcheck! {
     }
 }
 
+quickcheck! {
+    fn ternary_prefix_prop_i32(data: Vec<Vec<SmallAlphabet>>) -> bool {
+        prefix_test(TernaryTrie::<i32>::new_with_prio(rand::weak_rng()), data)
+    }
+}
+
+quickcheck! {
+    fn ternary_contains_prop_i32(data1: Vec<Vec<SmallAlphabet>>, data2: Vec<Vec<SmallAlphabet>>) -> bool {
+        contains_test(TernaryTrie::<i32>::new_with_prio(rand::weak_rng()), data1, data2)
+    }
+}
+
+quickcheck! {
+    fn ternary_remove_prop_i32(data: Vec<Vec<SmallAlphabet>>) -> bool {
+        remove_test(TernaryTrie::<i32>::new_with_prio(rand::weak_rng()), data)
+    }
+}
+
 fn small_alphabet_to_string<I, B>(from: I) -> B
     where I: IntoIterator<Item = Vec<SmallAlphabet>>,
           B: FromIterator<String>

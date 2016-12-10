@@ -3,13 +3,13 @@ use std::cmp::Ordering;
 use std::iter::Peekable;
 use std::mem;
 
-use num_traits::{Bounded, One, Unsigned};
+use num_traits::{Bounded, One, PrimInt};
 use rand::Rng;
 use rand::distributions::range::SampleRange;
 
 /// Trait for node priority types.
-pub trait Priority: Unsigned + Bounded + Copy + Ord + SampleRange {}
-impl<T> Priority for T where T: Unsigned + Bounded + Copy + Ord + SampleRange {}
+pub trait Priority: PrimInt + SampleRange {}
+impl<T> Priority for T where T: PrimInt + SampleRange {}
 
 /// A randomized ternary search trie.
 ///
