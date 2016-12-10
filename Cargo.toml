@@ -2,6 +2,11 @@
 name = "rtrie"
 version = "0.1.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
+description = "Randomized ternary search tries"
+homepage = "https://github.com/danieldk/rtrie"
+repository = "https://github.com/danieldk/rtrie"
+license = "Apache-2.0"
+readme = "README.md"
 
 [dependencies]
 num-traits = "0.1"
