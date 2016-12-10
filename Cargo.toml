@@ -7,6 +7,9 @@ homepage = "https://github.com/danieldk/rtrie"
 repository = "https://github.com/danieldk/rtrie"
 license = "Apache-2.0"
 readme = "README.md"
+exclude = [
+  ".gitignore"
+]
 
 [dependencies]
 num-traits = "0.1"
