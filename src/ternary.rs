@@ -22,15 +22,15 @@ where
 /// Ternary Search Tries*, Nicolai Diethelm:
 ///
 /// <https://arxiv.org/abs/1606.04042>
-pub struct TernaryTrie<P = u32>
+pub struct TernaryTrie<P, V>
 where
     P: Priority,
 {
-    root: BoxedNode<P>,
+    root: BoxedNode<P, V>,
     rng: Box<Rng>,
 }
 
-impl<P> TernaryTrie<P>
+impl<P, V> TernaryTrie<P, V>
 where
     P: Priority,
 {
@@ -76,7 +76,7 @@ where
     ///
     /// Since a ternary tree cannot store empty strings, the `insert` method
     /// will panic when inserting an empty string.
-    pub fn insert<S>(&mut self, s: S)
+    pub fn insert<S>(&mut self, s: S, value: V)
     where
         S: IntoIterator<Item = char>,
     {
@@ -89,16 +89,16 @@ where
 
         let mut root = BoxedNode::default();
         mem::swap(&mut root, &mut self.root);
-        self.root = root.insert(chars, &mut self.rng);
+        self.root = root.insert(chars, value, &mut self.rng);
     }
 
     /// Return an iterator over the strings in the trie.
-    pub fn iter<'a>(&'a self) -> Iter<'a, P> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, P, V> {
         Iter::new(self.root.as_ref())
     }
 
     /// Iterate over the strings starting with the given `prefix`.
-    pub fn prefix_iter<'a, S>(&'a self, prefix: S) -> Iter<'a, P>
+    pub fn prefix_iter<'a, S>(&'a self, prefix: S) -> Iter<'a, P, V>
     where
         S: IntoIterator<Item = char>,
     {
@@ -135,7 +135,7 @@ where
     }
 }
 
-impl TernaryTrie<u32> {
+impl<V> TernaryTrie<u32, V> {
     /// Construct a trie. The random number generator will be used to
     /// generate string priorities.
     pub fn new<R>(rng: R) -> Self
@@ -149,21 +149,10 @@ impl TernaryTrie<u32> {
     }
 }
 
-impl<'a, P> IntoIterator for &'a TernaryTrie<P>
-where
-    P: Priority,
-{
-    type Item = String;
-    type IntoIter = Iter<'a, P>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
 #[derive(Debug)]
-struct TreeNode<P> {
+struct TreeNode<P, V> {
     ch: char,
+    value: Option<V>,
 
     // Node priority. This should always be larger than the priorities of the
     // left and right child.
@@ -172,18 +161,19 @@ struct TreeNode<P> {
     // String priority: 0 if this node does not represent a string, non-0 otherwise.
     str_prio: P,
 
-    left: BoxedNode<P>,
-    mid: BoxedNode<P>,
-    right: BoxedNode<P>,
+    left: BoxedNode<P, V>,
+    mid: BoxedNode<P, V>,
+    right: BoxedNode<P, V>,
 }
 
-impl<P> TreeNode<P>
+impl<P, V> TreeNode<P, V>
 where
     P: Priority,
 {
     fn new(ch: char) -> Self {
         TreeNode {
-            ch: ch,
+            ch,
+            value: None,
             prio: Bounded::min_value(),
             str_prio: Bounded::min_value(),
             left: BoxedNode::default(),
@@ -199,27 +189,27 @@ where
 /// - This representation allows us to model absent nodes (that we can
 ///   still insert on).
 #[derive(Debug)]
-struct BoxedNode<P>(Option<Box<TreeNode<P>>>);
+struct BoxedNode<P, V>(Option<Box<TreeNode<P, V>>>);
 
-impl<P> BoxedNode<P> {
+impl<P, V> BoxedNode<P, V> {
     /// Construct a boxed node from a tree node.
-    fn new(node: TreeNode<P>) -> Self {
+    fn new(node: TreeNode<P, V>) -> Self {
         BoxedNode(Some(Box::new(node)))
     }
 
     /// Get the boxed node as a reference.
-    fn as_ref(&self) -> Option<&TreeNode<P>> {
+    fn as_ref(&self) -> Option<&TreeNode<P, V>> {
         self.0.as_ref().map(|b| b.as_ref())
     }
 }
 
-impl<P> BoxedNode<P>
+impl<P, V> BoxedNode<P, V>
 where
     P: Priority,
 {
     /// Insert characters into the tree starting at this boxed node. This
     /// method will panic if it is passed an iterator without characters.
-    fn insert<I, R>(self, mut chars: Peekable<I>, rng: &mut R) -> Self
+    fn insert<I, R>(self, mut chars: Peekable<I>, value: V, rng: &mut R) -> Self
     where
         I: Iterator<Item = char>,
         R: Rng,
@@ -236,13 +226,13 @@ where
         // the left/right child node when the child has a higher priority.
         match ch.cmp(&node.ch) {
             Ordering::Less => {
-                node.left = node.left.insert(chars, rng);
+                node.left = node.left.insert(chars, value, rng);
                 if node.left.as_ref().unwrap().prio > node.prio {
                     node = rotate_with_left(node);
                 }
             }
             Ordering::Greater => {
-                node.right = node.right.insert(chars, rng);
+                node.right = node.right.insert(chars, value, rng);
                 if node.right.as_ref().unwrap().prio > node.prio {
                     node = rotate_with_right(node);
                 }
@@ -251,12 +241,13 @@ where
                 chars.next();
 
                 if chars.peek().is_some() {
-                    node.mid = node.mid.insert(chars, rng);
+                    node.mid = node.mid.insert(chars, value, rng);
                 } else if node.str_prio == Bounded::min_value() {
                     // Generate non-zero string priority to mark that the node
                     // represents a string.
                     node.str_prio =
                         rng.gen_range::<P>(Bounded::min_value(), Bounded::max_value()) + One::one();
+                    node.value = Some(value);
                 }
 
                 // If there is a mid child, the node takes the highest of the
@@ -283,7 +274,7 @@ where
     /// Returns the node that represents the given prefix. Note that we
     /// return the accepting node and not its mid chid. Otherwise, a
     /// caller could not check if the prefix is also a string.
-    fn prefix_node<I>(&self, mut chars: Peekable<I>) -> Option<&TreeNode<P>>
+    fn prefix_node<I>(&self, mut chars: Peekable<I>) -> Option<&TreeNode<P, V>>
     where
         I: Iterator<Item = char>,
     {
@@ -346,41 +337,43 @@ where
     }
 }
 
-impl<P> Default for BoxedNode<P> {
+impl<P, V> Default for BoxedNode<P, V> {
     fn default() -> Self {
         BoxedNode(None)
     }
 }
 
 /// Iterator items.
-enum IterItem<'a, P>
+enum IterItem<'a, P, V>
 where
     P: 'a,
+    V: 'a
 {
     /// Pair of a node and the 'generated' string to reach the node.
-    Node(Option<&'a TreeNode<P>>, String),
+    Node(Option<&'a TreeNode<P, V>>, String),
 
     /// A value (string accepted by the trie).
-    Value(String),
+    Value(String, &'a V),
 }
 
-pub struct Iter<'a, P: 'a> {
-    work: Vec<IterItem<'a, P>>,
+pub struct Iter<'a, P: 'a, V: 'a> {
+    work: Vec<IterItem<'a, P, V>>,
 }
 
-impl<'a, P> Iter<'a, P>
+impl<'a, P, V> Iter<'a, P, V>
 where
     P: Priority,
+    V: 'a,
 {
     /// Create a new iterator starting at the given node.
-    fn new(root: Option<&'a TreeNode<P>>) -> Self {
+    fn new(root: Option<&'a TreeNode<P, V>>) -> Self {
         Iter {
             work: vec![IterItem::Node(root, String::new())],
         }
     }
 
     /// Create a new iterator starting at the given node, with a prefix.
-    fn with_prefix(root: Option<&'a TreeNode<P>>, prefix: String) -> Self {
+    fn with_prefix(root: Option<&'a TreeNode<P, V>>, prefix: String) -> Self {
         if prefix.is_empty() {
             return Iter {
                 work: vec![IterItem::Node(root, prefix)],
@@ -395,7 +388,7 @@ where
             // given node/prefix is a string. If so, we add this as a result
             // item.
             if root.str_prio != Bounded::min_value() {
-                items.push(IterItem::Value(prefix));
+                items.push(IterItem::Value(prefix, root.value.as_ref().unwrap()));
             }
         }
 
@@ -403,11 +396,11 @@ where
     }
 }
 
-impl<'a, P> Iterator for Iter<'a, P>
+impl<'a, P, V> Iterator for Iter<'a, P, V>
 where
     P: Priority,
 {
-    type Item = String;
+    type Item = (String, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -417,7 +410,7 @@ where
             };
 
             match item {
-                IterItem::Value(val) => return Some(val),
+                IterItem::Value(k, v) => return Some((k, v)),
                 IterItem::Node(node, prefix) => {
                     // Note 'work' is a stack, so we have to add work that we want
                     // to do last first and vice versa.
@@ -438,7 +431,7 @@ where
                         .push(IterItem::Node(node.mid.as_ref(), new_prefix.clone()));
 
                     if node.str_prio != Bounded::min_value() {
-                        self.work.push(IterItem::Value(new_prefix.clone()));
+                        self.work.push(IterItem::Value(new_prefix.clone(), node.value.as_ref().unwrap()));
                     }
 
                     self.work
@@ -450,14 +443,14 @@ where
 }
 
 #[allow(dead_code)]
-pub fn dead_nodes<P>(trie: &TernaryTrie<P>) -> bool
+pub fn dead_nodes<P, V>(trie: &TernaryTrie<P, V>) -> bool
 where
     P: Priority,
 {
     dead_nodes_(trie.root.as_ref())
 }
 
-fn dead_nodes_<P>(node: Option<&TreeNode<P>>) -> bool
+fn dead_nodes_<P, V>(node: Option<&TreeNode<P, V>>) -> bool
 where
     P: Priority,
 {
@@ -477,7 +470,7 @@ where
 
 /// Rotate a node with a child if a child has a higher priority. Remove the
 /// node when its priority is zero.
-fn heapify_or_delete<P>(mut node: TreeNode<P>) -> BoxedNode<P>
+fn heapify_or_delete<P, V>(mut node: TreeNode<P, V>) -> BoxedNode<P, V>
 where
     P: Priority,
 {
@@ -506,7 +499,7 @@ where
 }
 
 /// Rotate node with its left child.
-fn rotate_with_left<P>(mut node: TreeNode<P>) -> TreeNode<P> {
+fn rotate_with_left<P, V>(mut node: TreeNode<P, V>) -> TreeNode<P, V> {
     let mut y = *node.left.0.unwrap();
     node.left = y.right;
     y.right = BoxedNode::new(node);
@@ -514,7 +507,7 @@ fn rotate_with_left<P>(mut node: TreeNode<P>) -> TreeNode<P> {
 }
 
 /// Rotate node with its right child.
-fn rotate_with_right<P>(mut node: TreeNode<P>) -> TreeNode<P> {
+fn rotate_with_right<P, V>(mut node: TreeNode<P, V>) -> TreeNode<P, V> {
     let mut y = *node.right.0.unwrap();
     node.right = y.left;
     y.left = BoxedNode::new(node);
