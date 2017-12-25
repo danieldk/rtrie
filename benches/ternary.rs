@@ -34,14 +34,14 @@ fn ternary_lookup_bench(b: &mut Bencher, dict_len: usize, lookup_len: usize) {
 
     let mut trie = TernaryTrie::new(weak_rng());
     for word in &sample {
-        trie.insert(word.chars());
+        trie.insert(word.chars(), ());
     }
 
     let lookup_sample = rand::sample(&mut rng, sample, lookup_len);
 
     b.iter(|| {
         for word in &lookup_sample {
-            trie.contains(word.chars());
+            trie.contains_key(word.chars());
         }
     })
 }
