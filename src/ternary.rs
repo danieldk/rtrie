@@ -51,7 +51,7 @@ where
     ///
     /// Since a ternary trie cannot contain the empty string, this method
     /// will always return `false` for an empty string.
-    pub fn contains<S>(&self, s: S) -> bool
+    pub fn contains_key<S>(&self, s: S) -> bool
     where
         S: IntoIterator<Item = char>,
     {
@@ -226,7 +226,7 @@ where
     {
         let ch = *chars.peek().unwrap();
 
-        /// Unwrap the treenode, creating a new node if it was an empty node.
+        // Unwrap the treenode, creating a new node if it was an empty node.
         let mut node = match self.0 {
             Some(node) => *node,
             None => TreeNode::new(ch),
@@ -311,7 +311,7 @@ where
     {
         let ch = *chars.peek().unwrap();
 
-        /// Unwrap the treenode, If the node is None, there is nothing to delete
+        // Unwrap the treenode, If the node is None, there is nothing to delete
         let mut node = match self.0 {
             Some(node) => *node,
             None => return self,

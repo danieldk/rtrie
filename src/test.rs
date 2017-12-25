@@ -131,13 +131,13 @@ where
     }
 
     for s in &data1 {
-        if !trie.contains(s.chars()) {
+        if !trie.contains_key(s.chars()) {
             return false;
         }
     }
 
     for s in &diff {
-        if trie.contains(s.chars()) {
+        if trie.contains_key(s.chars()) {
             return false;
         }
     }
@@ -181,13 +181,13 @@ where
     }
 
     for s in data {
-        if !trie.contains(s.chars()) {
+        if !trie.contains_key(s.chars()) {
             return false;
         }
 
         trie.remove(s.chars());
 
-        if trie.contains(s.chars()) {
+        if trie.contains_key(s.chars()) {
             return false;
         }
 
