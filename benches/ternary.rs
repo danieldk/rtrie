@@ -10,13 +10,14 @@ use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
 
-use rand::{Rng, weak_rng};
+use rand::{weak_rng, Rng};
 use test::Bencher;
 
 use rtrie::TernaryTrie;
 
 fn sowpods_sample<R>(rng: &mut R, sample_size: usize) -> io::Result<Vec<String>>
-    where R: Rng
+where
+    R: Rng,
 {
     // let f = File::open("sowpods.txt")?;
     let f = File::open("sowpods.txt")?;

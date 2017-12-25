@@ -42,7 +42,8 @@ impl From<SmallAlphabet> for char {
 
 impl FromIterator<SmallAlphabet> for String {
     fn from_iter<T>(iter: T) -> Self
-        where T: IntoIterator<Item = SmallAlphabet>
+    where
+        T: IntoIterator<Item = SmallAlphabet>,
     {
         iter.into_iter().map(Into::<char>::into).collect()
     }
@@ -103,8 +104,9 @@ quickcheck! {
 }
 
 fn small_alphabet_to_string<I, B>(from: I) -> B
-    where I: IntoIterator<Item = Vec<SmallAlphabet>>,
-          B: FromIterator<String>
+where
+    I: IntoIterator<Item = Vec<SmallAlphabet>>,
+    B: FromIterator<String>,
 {
     from.into_iter()
         .filter(|w| !w.is_empty())
@@ -112,11 +114,13 @@ fn small_alphabet_to_string<I, B>(from: I) -> B
         .collect()
 }
 
-fn contains_test<P>(mut trie: TernaryTrie<P>,
-                    data1: Vec<Vec<SmallAlphabet>>,
-                    data2: Vec<Vec<SmallAlphabet>>)
-                    -> bool
-    where P: Priority
+fn contains_test<P>(
+    mut trie: TernaryTrie<P>,
+    data1: Vec<Vec<SmallAlphabet>>,
+    data2: Vec<Vec<SmallAlphabet>>,
+) -> bool
+where
+    P: Priority,
 {
     let data1: HashSet<_> = small_alphabet_to_string(data1);
     let data2: HashSet<_> = small_alphabet_to_string(data2);
@@ -142,7 +146,8 @@ fn contains_test<P>(mut trie: TernaryTrie<P>,
 }
 
 fn prefix_test<P>(mut trie: TernaryTrie<P>, data: Vec<Vec<SmallAlphabet>>) -> bool
-    where P: Priority
+where
+    P: Priority,
 {
     let data: Vec<_> = small_alphabet_to_string(data);
 
@@ -166,7 +171,8 @@ fn prefix_test<P>(mut trie: TernaryTrie<P>, data: Vec<Vec<SmallAlphabet>>) -> bo
 }
 
 fn remove_test<P>(mut trie: TernaryTrie<P>, data: Vec<Vec<SmallAlphabet>>) -> bool
-    where P: Priority
+where
+    P: Priority,
 {
     let data: HashSet<_> = small_alphabet_to_string(data);
 

@@ -9,7 +9,11 @@ use rand::distributions::range::SampleRange;
 
 /// Trait for node priority types.
 pub trait Priority: PrimInt + SampleRange {}
-impl<T> Priority for T where T: PrimInt + SampleRange {}
+impl<T> Priority for T
+where
+    T: PrimInt + SampleRange,
+{
+}
 
 /// A randomized ternary search trie.
 ///
@@ -19,20 +23,23 @@ impl<T> Priority for T where T: PrimInt + SampleRange {}
 ///
 /// <https://arxiv.org/abs/1606.04042>
 pub struct TernaryTrie<P = u32>
-    where P: Priority
+where
+    P: Priority,
 {
     root: BoxedNode<P>,
     rng: Box<Rng>,
 }
 
 impl<P> TernaryTrie<P>
-    where P: Priority
+where
+    P: Priority,
 {
     /// Construct a trie. This constructor has a priority type parameter,
     /// This allows the user to specify the type of the priority. E.g. for
     /// smaller trees a narrow unsigned could suffice and saves memory.
     pub fn new_with_prio<R>(rng: R) -> Self
-        where R: Rng + 'static
+    where
+        R: Rng + 'static,
     {
         TernaryTrie {
             root: BoxedNode::default(),
@@ -45,7 +52,8 @@ impl<P> TernaryTrie<P>
     /// Since a ternary trie cannot contain the empty string, this method
     /// will always return `false` for an empty string.
     pub fn contains<S>(&self, s: S) -> bool
-        where S: IntoIterator<Item = char>
+    where
+        S: IntoIterator<Item = char>,
     {
         let mut chars = s.into_iter().peekable();
 
@@ -69,12 +77,15 @@ impl<P> TernaryTrie<P>
     /// Since a ternary tree cannot store empty strings, the `insert` method
     /// will panic when inserting an empty string.
     pub fn insert<S>(&mut self, s: S)
-        where S: IntoIterator<Item = char>
+    where
+        S: IntoIterator<Item = char>,
     {
         let mut chars = s.into_iter().peekable();
 
-        assert!(chars.peek().is_some(),
-                "Empty strings cannot be inserted into a TernaryTrie");
+        assert!(
+            chars.peek().is_some(),
+            "Empty strings cannot be inserted into a TernaryTrie"
+        );
 
         let mut root = BoxedNode::default();
         mem::swap(&mut root, &mut self.root);
@@ -88,7 +99,8 @@ impl<P> TernaryTrie<P>
 
     /// Iterate over the strings starting with the given `prefix`.
     pub fn prefix_iter<'a, S>(&'a self, prefix: S) -> Iter<'a, P>
-        where S: IntoIterator<Item = char>
+    where
+        S: IntoIterator<Item = char>,
     {
         let prefix: String = prefix.into_iter().collect();
 
@@ -107,12 +119,15 @@ impl<P> TernaryTrie<P>
     /// Since a ternary tree cannot store empty strings, the `remove` method
     /// will panic when attempting to insert an empty string.
     pub fn remove<S>(&mut self, s: S)
-        where S: IntoIterator<Item = char>
+    where
+        S: IntoIterator<Item = char>,
     {
         let mut chars = s.into_iter().peekable();
 
-        assert!(chars.peek().is_some(),
-                "Empty strings cannot be removed from a TernaryTrie");
+        assert!(
+            chars.peek().is_some(),
+            "Empty strings cannot be removed from a TernaryTrie"
+        );
 
         let mut root = BoxedNode::default();
         mem::swap(&mut root, &mut self.root);
@@ -124,7 +139,8 @@ impl TernaryTrie<u32> {
     /// Construct a trie. The random number generator will be used to
     /// generate string priorities.
     pub fn new<R>(rng: R) -> Self
-        where R: Rng + 'static
+    where
+        R: Rng + 'static,
     {
         TernaryTrie {
             root: BoxedNode::default(),
@@ -134,7 +150,8 @@ impl TernaryTrie<u32> {
 }
 
 impl<'a, P> IntoIterator for &'a TernaryTrie<P>
-    where P: Priority
+where
+    P: Priority,
 {
     type Item = String;
     type IntoIter = Iter<'a, P>;
@@ -161,7 +178,8 @@ struct TreeNode<P> {
 }
 
 impl<P> TreeNode<P>
-    where P: Priority
+where
+    P: Priority,
 {
     fn new(ch: char) -> Self {
         TreeNode {
@@ -196,13 +214,15 @@ impl<P> BoxedNode<P> {
 }
 
 impl<P> BoxedNode<P>
-    where P: Priority
+where
+    P: Priority,
 {
     /// Insert characters into the tree starting at this boxed node. This
     /// method will panic if it is passed an iterator without characters.
     fn insert<I, R>(self, mut chars: Peekable<I>, rng: &mut R) -> Self
-        where I: Iterator<Item = char>,
-              R: Rng
+    where
+        I: Iterator<Item = char>,
+        R: Rng,
     {
         let ch = *chars.peek().unwrap();
 
@@ -235,8 +255,8 @@ impl<P> BoxedNode<P>
                 } else if node.str_prio == Bounded::min_value() {
                     // Generate non-zero string priority to mark that the node
                     // represents a string.
-                    node.str_prio = rng.gen_range::<P>(Bounded::min_value(), Bounded::max_value()) +
-                                    One::one();
+                    node.str_prio =
+                        rng.gen_range::<P>(Bounded::min_value(), Bounded::max_value()) + One::one();
                 }
 
                 // If there is a mid child, the node takes the highest of the
@@ -264,30 +284,30 @@ impl<P> BoxedNode<P>
     /// return the accepting node and not its mid chid. Otherwise, a
     /// caller could not check if the prefix is also a string.
     fn prefix_node<I>(&self, mut chars: Peekable<I>) -> Option<&TreeNode<P>>
-        where I: Iterator<Item = char>
+    where
+        I: Iterator<Item = char>,
     {
         match self.as_ref() {
-            Some(node) => {
-                chars.peek().cloned().and_then(|ch| match ch.cmp(&node.ch) {
-                    Ordering::Less => node.left.prefix_node(chars),
-                    Ordering::Greater => node.right.prefix_node(chars),
-                    Ordering::Equal => {
-                        chars.next();
-                        if chars.peek().is_some() {
-                            node.mid.prefix_node(chars)
-                        } else {
-                            Some(node)
-                        }
+            Some(node) => chars.peek().cloned().and_then(|ch| match ch.cmp(&node.ch) {
+                Ordering::Less => node.left.prefix_node(chars),
+                Ordering::Greater => node.right.prefix_node(chars),
+                Ordering::Equal => {
+                    chars.next();
+                    if chars.peek().is_some() {
+                        node.mid.prefix_node(chars)
+                    } else {
+                        Some(node)
                     }
-                })
-            }
+                }
+            }),
             None => None,
         }
     }
 
     /// Remove the string with the given 'suffix' characters.
     pub fn remove<I>(self, mut chars: Peekable<I>) -> Self
-        where I: Iterator<Item = char>
+    where
+        I: Iterator<Item = char>,
     {
         let ch = *chars.peek().unwrap();
 
@@ -334,7 +354,8 @@ impl<P> Default for BoxedNode<P> {
 
 /// Iterator items.
 enum IterItem<'a, P>
-    where P: 'a
+where
+    P: 'a,
 {
     /// Pair of a node and the 'generated' string to reach the node.
     Node(Option<&'a TreeNode<P>>, String),
@@ -348,17 +369,22 @@ pub struct Iter<'a, P: 'a> {
 }
 
 impl<'a, P> Iter<'a, P>
-    where P: Priority
+where
+    P: Priority,
 {
     /// Create a new iterator starting at the given node.
     fn new(root: Option<&'a TreeNode<P>>) -> Self {
-        Iter { work: vec![IterItem::Node(root, String::new())] }
+        Iter {
+            work: vec![IterItem::Node(root, String::new())],
+        }
     }
 
     /// Create a new iterator starting at the given node, with a prefix.
     fn with_prefix(root: Option<&'a TreeNode<P>>, prefix: String) -> Self {
         if prefix.is_empty() {
-            return Iter { work: vec![IterItem::Node(root, prefix)] };
+            return Iter {
+                work: vec![IterItem::Node(root, prefix)],
+            };
         }
 
         let mut items = Vec::new();
@@ -378,7 +404,8 @@ impl<'a, P> Iter<'a, P>
 }
 
 impl<'a, P> Iterator for Iter<'a, P>
-    where P: Priority
+where
+    P: Priority,
 {
     type Item = String;
 
@@ -424,18 +451,21 @@ impl<'a, P> Iterator for Iter<'a, P>
 
 #[allow(dead_code)]
 pub fn dead_nodes<P>(trie: &TernaryTrie<P>) -> bool
-    where P: Priority
+where
+    P: Priority,
 {
     dead_nodes_(trie.root.as_ref())
 }
 
 fn dead_nodes_<P>(node: Option<&TreeNode<P>>) -> bool
-    where P: Priority
+where
+    P: Priority,
 {
     match node {
         Some(node) => {
-            if dead_nodes_(node.left.as_ref()) || dead_nodes_(node.mid.as_ref()) ||
-               dead_nodes_(node.right.as_ref()) {
+            if dead_nodes_(node.left.as_ref()) || dead_nodes_(node.mid.as_ref())
+                || dead_nodes_(node.right.as_ref())
+            {
                 true
             } else {
                 node.mid.0.is_none() && node.str_prio == Bounded::min_value()
@@ -448,10 +478,17 @@ fn dead_nodes_<P>(node: Option<&TreeNode<P>>) -> bool
 /// Rotate a node with a child if a child has a higher priority. Remove the
 /// node when its priority is zero.
 fn heapify_or_delete<P>(mut node: TreeNode<P>) -> BoxedNode<P>
-    where P: Priority
+where
+    P: Priority,
 {
-    let left_prio = node.left.as_ref().map(|n| n.prio).unwrap_or(Bounded::min_value());
-    let right_prio = node.right.as_ref().map(|n| n.prio).unwrap_or(Bounded::min_value());
+    let left_prio = node.left
+        .as_ref()
+        .map(|n| n.prio)
+        .unwrap_or(Bounded::min_value());
+    let right_prio = node.right
+        .as_ref()
+        .map(|n| n.prio)
+        .unwrap_or(Bounded::min_value());
 
     if node.prio < left_prio || node.prio < right_prio {
         if left_prio > right_prio {
