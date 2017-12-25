@@ -347,7 +347,7 @@ impl<P, V> Default for BoxedNode<P, V> {
 enum IterItem<'a, P, V>
 where
     P: 'a,
-    V: 'a
+    V: 'a,
 {
     /// Pair of a node and the 'generated' string to reach the node.
     Node(Option<&'a TreeNode<P, V>>, String),
@@ -431,7 +431,10 @@ where
                         .push(IterItem::Node(node.mid.as_ref(), new_prefix.clone()));
 
                     if node.str_prio != Bounded::min_value() {
-                        self.work.push(IterItem::Value(new_prefix.clone(), node.value.as_ref().unwrap()));
+                        self.work.push(IterItem::Value(
+                            new_prefix.clone(),
+                            node.value.as_ref().unwrap(),
+                        ));
                     }
 
                     self.work
