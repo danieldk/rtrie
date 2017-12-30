@@ -525,7 +525,7 @@ mod tests {
     use rand;
     use rand::distributions::{IndependentSample, Normal};
 
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::iter::FromIterator;
 
     use super::*;
@@ -621,7 +621,7 @@ mod tests {
     fn prefix_test<P, V>(mut trie: TernaryTrie<P, V>, data: Vec<(Vec<SmallAlphabet>, V)>) -> bool
     where
         P: Priority,
-        V: Clone,
+        V: Clone + Eq,
     {
         let data: Vec<_> = small_alphabet_to_string(data);
 
@@ -635,11 +635,11 @@ mod tests {
 
         let prefix = random_prefix(&data);
 
-        let found_prefixes: HashSet<_> = trie.prefix_iter(prefix.chars()).map(|(k, _)| k).collect();
-        let correct_prefixes: HashSet<String> = data.iter()
-            .map(|&(ref w, _)| w)
-            .filter(|w| w.starts_with(&prefix))
-            .map(|w| w.to_owned())
+        let found_prefixes: HashMap<_, _> = trie.prefix_iter(prefix.chars())
+            .map(|(k, v)| (k, v.clone()))
+            .collect();
+        let correct_prefixes: HashMap<_, _> = data.into_iter()
+            .filter(|&(ref k, _)| k.starts_with(&prefix))
             .collect();
 
         found_prefixes == correct_prefixes
@@ -679,10 +679,11 @@ mod tests {
     where
         I: IntoIterator<Item = (Vec<SmallAlphabet>, V)>,
         B: FromIterator<(String, V)>,
+        V: Clone,
     {
         from.into_iter()
             .filter(|&(ref k, _)| !k.is_empty())
-            .map(|(k, v)| (FromIterator::<SmallAlphabet>::from_iter(k), v))
+            .map(|(k, v)| (FromIterator::<SmallAlphabet>::from_iter(k), v.clone()))
             .collect()
     }
 
