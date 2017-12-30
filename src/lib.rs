@@ -13,9 +13,6 @@ mod set;
 pub use set::TernaryTrieSet;
 
 #[cfg(test)]
-mod test;
-
-#[cfg(test)]
 mod tests {
     use std::iter::FromIterator;
 
