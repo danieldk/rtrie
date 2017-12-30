@@ -520,92 +520,94 @@ fn rotate_with_right<P, V>(mut node: TreeNode<P, V>) -> TreeNode<P, V> {
 #[cfg(test)]
 mod tests {
     use rand;
+    use rand::distributions::{IndependentSample, Normal};
 
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
+    use std::iter::FromIterator;
 
     use super::*;
     use super::dead_nodes;
 
-    use tests::*;
+    use tests::SmallAlphabet;
 
     quickcheck! {
-        fn ternary_prefix_prop(data: Vec<Vec<SmallAlphabet>>) -> bool {
+        fn ternary_prefix_prop(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
             prefix_test(TernaryTrie::new(rand::weak_rng()), data)
         }
     }
 
     quickcheck! {
-        fn ternary_contains_prop(data1: Vec<Vec<SmallAlphabet>>, data2: Vec<Vec<SmallAlphabet>>) -> bool {
+        fn ternary_contains_prop(data1: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
             contains_test(TernaryTrie::new(rand::weak_rng()), data1, data2)
         }
     }
 
     quickcheck! {
-        fn ternary_remove_prop(data: Vec<Vec<SmallAlphabet>>) -> bool {
+        fn ternary_remove_prop(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
             remove_test(TernaryTrie::new(rand::weak_rng()), data)
         }
     }
 
     quickcheck! {
-        fn ternary_prefix_prop_u8(data: Vec<Vec<SmallAlphabet>>) -> bool {
-            prefix_test(TernaryTrie::<u8, ()>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_prefix_prop_u8(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            prefix_test(TernaryTrie::<u8, usize>::new_with_prio(rand::weak_rng()), data)
         }
     }
 
     quickcheck! {
-        fn ternary_contains_prop_u8(data1: Vec<Vec<SmallAlphabet>>, data2: Vec<Vec<SmallAlphabet>>) -> bool {
-            contains_test(TernaryTrie::<u8, ()>::new_with_prio(rand::weak_rng()), data1, data2)
+        fn ternary_contains_prop_u8(data1: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            contains_test(TernaryTrie::<u8, usize>::new_with_prio(rand::weak_rng()), data1, data2)
         }
     }
 
     quickcheck! {
-        fn ternary_remove_prop_u8(data: Vec<Vec<SmallAlphabet>>) -> bool {
-            remove_test(TernaryTrie::<u8, ()>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_remove_prop_u8(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            remove_test(TernaryTrie::<u8, usize>::new_with_prio(rand::weak_rng()), data)
         }
     }
 
     quickcheck! {
-        fn ternary_prefix_prop_i32(data: Vec<Vec<SmallAlphabet>>) -> bool {
-            prefix_test(TernaryTrie::<i32, ()>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_prefix_prop_i32(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            prefix_test(TernaryTrie::<i32, usize>::new_with_prio(rand::weak_rng()), data)
         }
     }
 
     quickcheck! {
-        fn ternary_contains_prop_i32(data1: Vec<Vec<SmallAlphabet>>, data2: Vec<Vec<SmallAlphabet>>) -> bool {
-            contains_test(TernaryTrie::<i32, ()>::new_with_prio(rand::weak_rng()), data1, data2)
+        fn ternary_contains_prop_i32(data1: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            contains_test(TernaryTrie::<i32, usize>::new_with_prio(rand::weak_rng()), data1, data2)
         }
     }
 
     quickcheck! {
-        fn ternary_remove_prop_i32(data: Vec<Vec<SmallAlphabet>>) -> bool {
-            remove_test(TernaryTrie::<i32, ()>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_remove_prop_i32(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            remove_test(TernaryTrie::<i32, usize>::new_with_prio(rand::weak_rng()), data)
         }
     }
 
-    fn contains_test<P>(
-        mut trie: TernaryTrie<P, ()>,
-        data1: Vec<Vec<SmallAlphabet>>,
-        data2: Vec<Vec<SmallAlphabet>>,
+    fn contains_test<P, V>(
+        mut trie: TernaryTrie<P, V>,
+        data1: Vec<(Vec<SmallAlphabet>, V)>,
+        data2: Vec<(Vec<SmallAlphabet>, V)>,
     ) -> bool
     where
         P: Priority,
+        V: Clone,
     {
-        let data1: HashSet<_> = small_alphabet_to_string(data1);
-        let data2: HashSet<_> = small_alphabet_to_string(data2);
-        let diff = &data2 - &data1;
+        let data1: HashMap<_, _> = small_alphabet_to_string(data1);
+        let data2: HashMap<_, _> = small_alphabet_to_string(data2);
 
-        for s in &data1 {
-            trie.insert(s.chars(), ());
+        for (k, v) in &data1 {
+            trie.insert(k.chars(), v.clone());
         }
 
-        for s in &data1 {
-            if !trie.contains_key(s.chars()) {
+        for (k, _) in &data1 {
+            if !trie.contains_key(k.chars()) {
                 return false;
             }
         }
 
-        for s in &diff {
-            if trie.contains_key(s.chars()) {
+        for (k, _) in &data2 {
+            if !data1.contains_key(k) && trie.contains_key(k.chars()) {
                 return false;
             }
         }
@@ -613,9 +615,10 @@ mod tests {
         true
     }
 
-    fn prefix_test<P>(mut trie: TernaryTrie<P, ()>, data: Vec<Vec<SmallAlphabet>>) -> bool
+    fn prefix_test<P, V>(mut trie: TernaryTrie<P, V>, data: Vec<(Vec<SmallAlphabet>, V)>) -> bool
     where
         P: Priority,
+        V: Clone,
     {
         let data: Vec<_> = small_alphabet_to_string(data);
 
@@ -623,39 +626,41 @@ mod tests {
             return true;
         }
 
-        for s in &data {
-            trie.insert(s.chars(), ());
+        for &(ref k, ref v) in &data {
+            trie.insert(k.chars(), v.clone());
         }
 
         let prefix = random_prefix(&data);
 
         let found_prefixes: HashSet<_> = trie.prefix_iter(prefix.chars()).map(|(k, _)| k).collect();
         let correct_prefixes: HashSet<String> = data.iter()
+            .map(|&(ref w, _)| w)
             .filter(|w| w.starts_with(&prefix))
-            .cloned()
+            .map(|w| w.to_owned())
             .collect();
 
         found_prefixes == correct_prefixes
     }
 
-    fn remove_test<P>(mut trie: TernaryTrie<P, ()>, data: Vec<Vec<SmallAlphabet>>) -> bool
+    fn remove_test<P, V>(mut trie: TernaryTrie<P, V>, data: Vec<(Vec<SmallAlphabet>, V)>) -> bool
     where
         P: Priority,
+        V: Clone,
     {
-        let data: HashSet<_> = small_alphabet_to_string(data);
+        let data: HashMap<_, _> = small_alphabet_to_string(data);
 
-        for s in &data {
-            trie.insert(s.chars(), ());
+        for (k, v) in &data {
+            trie.insert(k.chars(), v.clone());
         }
 
-        for s in data {
-            if !trie.contains_key(s.chars()) {
+        for (k, _) in data {
+            if !trie.contains_key(k.chars()) {
                 return false;
             }
 
-            trie.remove(s.chars());
+            trie.remove(k.chars());
 
-            if trie.contains_key(s.chars()) {
+            if trie.contains_key(k.chars()) {
                 return false;
             }
 
@@ -665,5 +670,36 @@ mod tests {
         }
 
         true
+    }
+
+    pub fn small_alphabet_to_string<I, B, V>(from: I) -> B
+    where
+        I: IntoIterator<Item = (Vec<SmallAlphabet>, V)>,
+        B: FromIterator<(String, V)>,
+    {
+        from.into_iter()
+            .filter(|&(ref k, _)| !k.is_empty())
+            .map(|(k, v)| (FromIterator::<SmallAlphabet>::from_iter(k), v))
+            .collect()
+    }
+
+    pub fn random_prefix<V>(data: &[(String, V)]) -> String {
+        let mut rng = rand::thread_rng();
+        let idx = rng.gen_range(0, data.len());
+
+        let s: String = data[idx].0.clone();
+
+        // Get a random and valid length, biased towards short prefixes.
+        let mut len;
+        loop {
+            let normal = Normal::new(0., 2.);
+            len = normal.ind_sample(&mut rng).abs().round() as usize + 1;
+
+            if len <= s.len() {
+                break;
+            }
+        }
+
+        s.chars().take(len).collect()
     }
 }
