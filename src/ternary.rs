@@ -248,6 +248,9 @@ where
                     node.str_prio =
                         rng.gen_range::<P>(Bounded::min_value(), Bounded::max_value()) + One::one();
                     node.value = Some(value);
+                } else {
+                    // Replace the value for a string that is already in the tree.
+                    node.value = Some(value);
                 }
 
                 // If there is a mid child, the node takes the highest of the
