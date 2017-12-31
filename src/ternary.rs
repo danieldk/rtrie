@@ -67,6 +67,22 @@ where
         }
     }
 
+    pub fn get<S>(&self, s: S) -> Option<&V> where S: IntoIterator<Item = char> {
+        let mut chars = s.into_iter().peekable();
+
+        if chars.peek().is_none() {
+            return None;
+        }
+
+        self.root.prefix_node(chars).and_then(|node| {
+            if node.str_prio != Bounded::min_value() {
+                assert!(node.value.is_some());
+            }
+
+            node.value.as_ref()
+        })
+    }
+
     /// Returns the number of nodes in the trie.
     pub fn node_count(&self) -> usize {
         self.root.node_count()
@@ -609,7 +625,7 @@ mod tests {
     ) -> bool
     where
         P: Priority,
-        V: Clone,
+        V: Clone + PartialEq,
     {
         let data1: HashMap<_, _> = small_alphabet_to_string(data1);
         let data2: HashMap<_, _> = small_alphabet_to_string(data2);
@@ -618,14 +634,22 @@ mod tests {
             trie.insert(k.chars(), v.clone());
         }
 
-        for (k, _) in &data1 {
+        for (k, v) in &data1 {
             if !trie.contains_key(k.chars()) {
+                return false;
+            }
+
+            if trie.get(k.chars()) != Some(v) {
                 return false;
             }
         }
 
         for (k, _) in &data2 {
             if !data1.contains_key(k) && trie.contains_key(k.chars()) {
+                return false;
+            }
+
+            if !data1.contains_key(k) && trie.get(k.chars()) != None {
                 return false;
             }
         }
