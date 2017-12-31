@@ -118,7 +118,7 @@ where
     ///
     /// Since a ternary tree cannot store empty strings, the `remove` method
     /// will panic when attempting to insert an empty string.
-    pub fn remove<S>(&mut self, s: S)
+    pub fn remove<S>(&mut self, s: S) -> Option<V>
     where
         S: IntoIterator<Item = char>,
     {
@@ -131,7 +131,9 @@ where
 
         let mut root = BoxedNode::default();
         mem::swap(&mut root, &mut self.root);
-        self.root = root.remove(chars);
+        let (new_root, val) = root.remove(chars);
+        self.root = new_root;
+        val
     }
 }
 
@@ -299,7 +301,7 @@ where
     }
 
     /// Remove the string with the given 'suffix' characters.
-    pub fn remove<I>(self, mut chars: Peekable<I>) -> Self
+    pub fn remove<I>(self, mut chars: Peekable<I>) -> (Self, Option<V>)
     where
         I: Iterator<Item = char>,
     {
@@ -308,22 +310,35 @@ where
         // Unwrap the treenode, If the node is None, there is nothing to delete
         let mut node = match self.0 {
             Some(node) => *node,
-            None => return self,
+            None => return (self, None),
         };
 
         // Remove recursively on the correct daughter.
-        match ch.cmp(&node.ch) {
-            Ordering::Less => node.left = node.left.remove(chars),
-            Ordering::Greater => node.right = node.right.remove(chars),
+        let val = match ch.cmp(&node.ch) {
+            Ordering::Less => {
+                let (new_node, val) = node.left.remove(chars);
+                node.left = new_node;
+                val
+            }
+            Ordering::Greater => {
+                let (new_node, val) = node.right.remove(chars);
+                node.right = new_node;
+                val
+            }
             Ordering::Equal => {
                 chars.next();
 
-                if chars.peek().is_some() {
-                    node.mid = node.mid.remove(chars);
+                let val = if chars.peek().is_some() {
+                    let (new_node, val) = node.mid.remove(chars);
+                    node.mid = new_node;
+                    val
                 } else {
                     // Remove the string by setting its priority to 0.
                     node.str_prio = Bounded::min_value();
-                }
+                    let mut val = None;
+                    mem::swap(&mut val, &mut node.value);
+                    val
+                };
 
                 // If there is a mid child, the node takes the highest of the
                 // child priority and the priority of its own string (if any).
@@ -332,11 +347,11 @@ where
                     None => node.str_prio,
                 };
 
-                return heapify_or_delete(node);
+                return (heapify_or_delete(node), val);
             }
-        }
+        };
 
-        BoxedNode::new(node)
+        (BoxedNode::new(node), val)
     }
 }
 
@@ -546,8 +561,8 @@ mod tests {
     }
 
     quickcheck! {
-        fn ternary_remove_prop(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
-            remove_test(TernaryTrie::new(rand::weak_rng()), data)
+        fn ternary_remove_prop(data: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            remove_test(TernaryTrie::new(rand::weak_rng()), data, data2)
         }
     }
 
@@ -564,8 +579,8 @@ mod tests {
     }
 
     quickcheck! {
-        fn ternary_remove_prop_u8(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
-            remove_test(TernaryTrie::<u8, usize>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_remove_prop_u8(data: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            remove_test(TernaryTrie::<u8, usize>::new_with_prio(rand::weak_rng()), data, data2)
         }
     }
 
@@ -582,8 +597,8 @@ mod tests {
     }
 
     quickcheck! {
-        fn ternary_remove_prop_i32(data: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
-            remove_test(TernaryTrie::<i32, usize>::new_with_prio(rand::weak_rng()), data)
+        fn ternary_remove_prop_i32(data: Vec<(Vec<SmallAlphabet>, usize)>, data2: Vec<(Vec<SmallAlphabet>, usize)>) -> bool {
+            remove_test(TernaryTrie::<i32, usize>::new_with_prio(rand::weak_rng()), data, data2)
         }
     }
 
@@ -645,23 +660,39 @@ mod tests {
         found_prefixes == correct_prefixes
     }
 
-    fn remove_test<P, V>(mut trie: TernaryTrie<P, V>, data: Vec<(Vec<SmallAlphabet>, V)>) -> bool
+    fn remove_test<P, V>(
+        mut trie: TernaryTrie<P, V>,
+        data: Vec<(Vec<SmallAlphabet>, V)>,
+        data2: Vec<(Vec<SmallAlphabet>, V)>,
+    ) -> bool
     where
         P: Priority,
-        V: Clone,
+        V: Clone + PartialEq,
     {
         let data: HashMap<_, _> = small_alphabet_to_string(data);
+        let data2: HashMap<_, _> = small_alphabet_to_string(data2);
 
         for (k, v) in &data {
             trie.insert(k.chars(), v.clone());
         }
 
-        for (k, _) in data {
+        for (k, _) in data2.into_iter() {
+            if !data.contains_key(&k) {
+                // Removing keys that are not in the trie should return None.
+                if trie.remove(k.chars()) != None {
+                    return false;
+                }
+            }
+        }
+
+        for (k, v) in data {
             if !trie.contains_key(k.chars()) {
                 return false;
             }
 
-            trie.remove(k.chars());
+            if trie.remove(k.chars()) != Some(v) {
+                return false;
+            }
 
             if trie.contains_key(k.chars()) {
                 return false;

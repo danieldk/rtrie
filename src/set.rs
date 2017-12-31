@@ -72,7 +72,7 @@ where
     where
         S: IntoIterator<Item = char>,
     {
-        self.0.remove(s)
+        self.0.remove(s);
     }
 }
 
